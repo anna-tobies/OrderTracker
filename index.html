@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Order Tracker</title>
+
+  <!-- Link to external CSS file -->
+  <link rel="stylesheet" type="text/css" href="main.css">
+
+</head>
+<body>
+
+<!-- Main HTML structure of the app. Contains header, navigation, main content area with different views (home, orders list, order detail, workstations). -->  
+<header>
+  <div class="logo">ORD<span>/</span>TRACK</div>
+  <div class="header-right"><span id="live-clock"></span></div>
+</header>
+
+<div class="breadcrumb" id="breadcrumb"></div>
+
+<!-- Main content area where different views are rendered based on user interaction. Initially shows the home view with navigation cards to orders and workstations. -->  
+<main>
+  <div class="error-banner" id="error-banner"><span>⚠</span><span id="error-msg"></span></div>
+
+  <!-- Home screen -->
+  <div class="view active" id="view-home">
+    <div style="text-align:center;margin-bottom:8px;">
+      <div class="page-label">Production Management</div>
+      <div class="page-heading" style="font-size:32px;">Order Tracker</div>
+    </div>
+    <div class="home-grid">
+      <div class="home-card" onclick="showView('orders')">
+        <div class="home-card-icon">📋</div>
+        <div class="home-card-title">Orders</div>
+        <div class="home-card-sub">Create and manage production orders. Track workplan progress across stations.</div>
+        <div class="home-card-arrow">Open Orders →</div>
+      </div>
+      <div class="home-card" onclick="showView('workstations')">
+        <div class="home-card-icon">🏭</div>
+        <div class="home-card-title">Workstations</div>
+        <div class="home-card-sub">Define the physical workstations available in your production facility.</div>
+        <div class="home-card-arrow">Manage Workstations →</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order overview page -->
+  <div class="view" id="view-orders">
+    <button class="btn btn-secondary btn-sm" onclick="showView('home')" style="margin-bottom:20px;">← Back</button>
+    <div class="heading-row">
+      <div class="heading-row-left">
+        <div class="page-label">Production</div>
+        <div class="page-heading">Orders</div>
+      </div>
+      <div class="orders-toolbar">
+        <div class="orders-toolbar-row1">
+          <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="orders-search" placeholder="Search by number or name…" oninput="filterOrders()"/>
+          </div>
+          <button class="btn btn-primary" onclick="openCreateOrderModal()">+ New Order</button>
+        </div>
+        <div class="orders-toolbar-row2">
+          <span class="date-filter-label">From</span>
+          <input type="date" id="orders-date-from" onchange="filterOrders()" class="date-filter-input"/>
+          <span class="date-filter-label">To</span>
+          <input type="date" id="orders-date-to" onchange="filterOrders()" class="date-filter-input"/>
+          <button class="btn-clear-dates" id="btn-clear-dates" onclick="clearDateFilter()" title="Clear date filter" style="display:none;">✕</button>
+          <select id="orders-status-filter" onchange="filterOrders()" class="status-filter-select">
+            <option value="">All Status</option>
+            <option value="ns">Not Started</option>
+            <option value="ip">In Progress</option>
+            <option value="done">Complete</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="list" id="orders-list"></div>
+  </div>    
+
+  <!-- Order detail overview (Shows Workplan, BOM, Technical Drawing) -->
+  <div class="view" id="view-order">
+    <div class="detail-header" id="detail-header">
+      <div class="detail-header-left">
+        <button class="btn btn-secondary btn-sm" onclick="showView('orders')">← Back</button>
+        <div>
+          <div class="page-label">Order Detail</div>
+          <div class="page-heading" id="detail-title" style="font-size:22px;"></div>
+        </div>
+        <div class="edit-badge" id="edit-badge">Edit Mode</div>
+      </div>
+      <div class="detail-header-right">
+        <button class="btn btn-primary btn-sm" id="btn-edit" onclick="toggleEditMode()">✏ Edit</button>
+        <button class="btn btn-danger btn-sm" id="btn-delete-cancel" onclick="deleteCancelClick()">✕ Delete</button>
+      </div>
+    </div>
+    <div class="tab-bar" id="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('wp')" id="tab-btn-wp"> Work Plan</button>
+      <button class="tab-btn" onclick="switchTab('bom')" id="tab-btn-bom"> Bill of Materials</button>
+      <button class="tab-btn" onclick="switchTab('td')" id="tab-btn-td"> Technical Drawing</button>
+    </div>
+    <div id="tab-panel-wp"  class="tab-panel active"></div>
+    <div id="tab-panel-bom" class="tab-panel"></div>
+    <div id="tab-panel-td"  class="tab-panel"></div>
+  </div>
+
+  <!-- Workstations screen -->
+  <div class="view" id="view-workstations">
+    <button class="btn btn-secondary btn-sm" onclick="showView('home')" style="margin-bottom:20px;">← Back</button>
+    <div class="heading-row">
+      <div class="heading-row-left">
+        <div class="page-label">Facility</div>
+        <div class="page-heading">Workstations</div>
+      </div>
+      <div id="ws-header-buttons">
+        <button class="btn btn-secondary" onclick="enterWsEditMode()">✏ Edit</button>
+      </div>
+    </div>
+    <div class="list" id="ws-list"></div>
+  </div>
+</main>
+
+<div class="statusbar">
+  <div class="mqtt-dot" id="mqtt-dot"></div>
+  <span id="mqtt-label">MQTT: Not connected</span>
+  <span class="link-btn" onclick="openInjectModal()">⚡ Inject Event</span>
+  <span class="sb-right" id="last-update"></span>
+</div>
+
+<!-- MODAL: Screen for creation of new Order -->
+<div class="overlay" id="modal-create-order">
+  <div class="modal">
+    <h3>Create New Order</h3>
+    <p class="modal-sub">Enter an order name, then build the work plan by adding steps.</p>
+    <div class="fields">
+      <div>
+        <label>Order Name</label>
+        <input type="text" id="co-name" placeholder="e.g. Cable Tree" autocomplete="off"/>
+      </div>
+    </div>
+    <div style="margin-top:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+        <span style="font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);">Work Plan Steps</span>
+        <button class="btn btn-secondary btn-sm" onclick="addCreateStep()">+ Add Step</button>
+      </div>
+      <div id="co-steps"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-create-order')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitCreateOrder()">Create Order</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Button for deleting Order -->
+<div class="overlay" id="modal-delete-order">
+  <div class="modal modal-sm">
+    <h3>Delete Order</h3>
+    <p class="modal-sub">This cannot be undone. All data will be lost.</p>
+    <p class="warn-text" id="delete-order-text"></p>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="closeModal('modal-delete-order')">Cancel</button>
+      <button class="btn btn-danger" onclick="submitDeleteOrder()">Delete Permanently</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Button for creating/editing Workstation -->
+<div class="overlay" id="modal-ws">
+  <div class="modal modal-sm">
+    <h3 id="ws-modal-title">New Workstation</h3>
+    <p class="modal-sub">Workstations are reusable across all orders.</p>
+    <div class="fields">
+      <div><label>Name (must match predifined MQTT zone name)</label><input type="text" id="ws-name" placeholder="e.g. WS1, T1, QC1"/></div>
+      <div><label>Type / Category</label><input type="text" id="ws-type" placeholder="e.g. Assembly, Quality, Testing"/></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-ws')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitWs()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Inject Event (replace by data stream when subscribed to MQTT stream) -->
+<div class="overlay" id="modal-inject">
+  <div class="modal">
+    <h3>Inject Station Event</h3>
+    <p class="modal-sub">Simulate an RFID/MQTT event manually for testing.</p>
+    <div class="fields">
+      <div><label>Order</label><select id="inj-order"></select></div>
+      <div><label>Workstation</label><select id="inj-ws"></select></div>
+      <div><label>Event</label>
+        <select id="inj-event">
+          <option value="enter">ENTER — start tracking</option>
+          <option value="exit">EXIT — end tracking</option>
+        </select>
+      </div>
+      <div class="field-row">
+        <div><label>Date</label><input type="date" id="inj-date"/></div>
+        <div><label>Time</label><input type="time" id="inj-time" step="1"/></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="closeModal('modal-inject')">Cancel</button>
+      <button class="btn btn-primary" onclick="submitInject()">Inject Event</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Edit active step name & process -->
+<div class="overlay" id="modal-edit-step">
+  <div class="modal modal-sm">
+    <h3>Edit Step</h3>
+    <p class="modal-sub" id="edit-step-modal-sub"></p>
+    <div class="fields">
+      <div>
+        <label>Step Name</label>
+        <input type="text" id="edit-step-name" placeholder="Step name"/>
+      </div>
+      <div>
+        <label>Process / Notes</label>
+        <textarea id="edit-step-process" rows="4" style="background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:var(--mono);font-size:12px;padding:9px 12px;border-radius:var(--radius);outline:none;width:100%;resize:vertical;" placeholder="Process description or notes…"></textarea>
+      </div>
+    </div>
+    <div class="modal-actions-inline">
+      <button class="btn-discard" onclick="closeModal('modal-edit-step')">✕</button>
+      <button class="btn-confirm" onclick="submitEditStep()">✓</button>
+    </div>
+  </div>
+</div>
+
+<!-- Linkage to JavaScript file -->
+<script src="app.js"></script>
+</body>
+</html>
