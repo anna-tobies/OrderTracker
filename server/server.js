@@ -116,6 +116,9 @@ app.post('/api/orders/:id/workstations/:workstationId/event', (req, res) => {
     if (!date || !time) return res.status(400).json({ error: 'date and time are required' });
     const order = db.getOrderById(req.params.id);
     if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (!order.ready) {
+      return res.status(400).json({ error: 'Order is still in preparation — switch it to "Not Started" in the order detail view before tracking events.' });
+    }
 
     // Choose mode: predefined steps vs. auto-tracking
     const hasFreeSlot = db.hasFreeSlotForWorkstation(req.params.id, req.params.workstationId, event);

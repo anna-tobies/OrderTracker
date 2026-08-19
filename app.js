@@ -2,7 +2,7 @@
 // app.js — ProdTrack Frontend Logic
 // ═══════════════════════════════════════════════════════════════════════════
 
-const API = 'http://10.24.151.173:3000/api'; // Change localhost to IP adress of computer for testing with multiple devices (uni: 10.24.151.173)
+const API = 'http://localhost:3000/api'; // Change localhost to IP adress of computer for testing with multiple devices (uni: 10.24.151.173)
 
 // ── Runtime state ─────────────────────────────────────────────────────────
 let currentOrderId    = null;
@@ -11,6 +11,7 @@ let workstationsCache = [];
 let editMode          = false;
 let editingWsId       = null;   // which workstation is being edited in modal
 let wsEditMode        = false;
+let ordersScrollY     = 0;      // remembers scroll position of the orders list
 
 // ── Create-order step counter ─────────────────────────────────────────────
 let coStepCounter = 0;
@@ -72,6 +73,11 @@ async function apiDelete(path) {
 // NAVIGATION
 // ═══════════════════════════════════════════════════════════════════════════
 function showView(name, id) {
+  // Remember scroll position before leaving the orders list
+  if (document.getElementById('view-orders').classList.contains('active')) {
+    ordersScrollY = window.scrollY;
+  }
+
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById('view-' + name).classList.add('active');
   editMode = false;
@@ -83,7 +89,7 @@ function showView(name, id) {
     setBreadcrumb();
   } else if (name === 'orders') {
     setBreadcrumb([{ label:'Orders' }]);
-    loadAndRenderOrders();
+    loadAndRenderOrders().then(() => window.scrollTo(0, ordersScrollY));
     startOrdersPolling();
   } else if (name === 'order' && id) {
     currentOrderId = id;
@@ -264,9 +270,8 @@ function clearDateFilter() {
 
 function getOrderStatus(order) {
   const steps = order.steps || [];
-  if (!steps.length) return 'ns';
   const anyStarted = steps.some(s => s.start_time);
-  if (!anyStarted) return 'ns';
+  if (!anyStarted) return order.ready ? 'ns' : 'prep';
 
   // If any step started AFTER the last Quality Control end → back to in progress
   const lastQC = steps
@@ -282,6 +287,15 @@ function getOrderStatus(order) {
   return 'done';
 }
 
+// Add symbol if order has notes on any step (process field)
+function hasNotes(order) {
+  return (order.steps || []).some(s => (s.process || '').trim().length > 0);
+}
+
+function notesFlagHtml(order) {
+  return hasNotes(order) ? `<span class="note-flag" title="This order has notes on one or more steps">⚠</span>` : '';
+}
+
 function renderOrders(orders) {
   const list = document.getElementById('orders-list');
   if (!orders.length) {
@@ -291,14 +305,14 @@ function renderOrders(orders) {
 
   const renderCard = (o) => {
     const st = getOrderStatus(o);
-    const pillCls = st === 'done' ? 'pill-done' : st === 'ip' ? 'pill-ip' : 'pill-ns';
-    const pillTxt = st === 'done' ? 'Complete'   : st === 'ip' ? 'In Progress' : 'Not Started';
+    const pillCls = st === 'done' ? 'pill-done' : st === 'ip' ? 'pill-ip' : st === 'prep' ? 'pill-prep' : 'pill-ns';
+    const pillTxt = st === 'done' ? 'Complete'   : st === 'ip' ? 'In Progress' : st === 'prep' ? 'In Preparation' : 'Not Started';
     const stepCount = (o.steps || []).length;
     return `
       <div class="order-card" data-order-id="${o.id}" data-snapshot="${h(JSON.stringify(o))}" onclick="showView('order',${o.id})">
         <div class="order-num">${h(o.order_number)}</div>
         <div class="order-dash">—</div>
-        <div class="order-name">${h(o.name)}</div>
+        <div class="order-name">${h(o.name)}${notesFlagHtml(o)}</div>
         <div class="order-steps-count">${stepCount} step${stepCount !== 1 ? 's' : ''}</div>
         <div class="pill ${pillCls}">${pillTxt}</div>
         <div class="order-arrow">›</div>
@@ -321,13 +335,13 @@ function renderOrders(orders) {
     if (el.dataset.snapshot !== snapshot) {
       el.dataset.snapshot = snapshot;
       const st = getOrderStatus(o);
-      const pillCls = st === 'done' ? 'pill-done' : st === 'ip' ? 'pill-ip' : 'pill-ns';
-      const pillTxt = st === 'done' ? 'Complete'   : st === 'ip' ? 'In Progress' : 'Not Started';
+      const pillCls = st === 'done' ? 'pill-done' : st === 'ip' ? 'pill-ip' : st === 'prep' ? 'pill-prep' : 'pill-ns';
+      const pillTxt = st === 'done' ? 'Complete'   : st === 'ip' ? 'In Progress' : st === 'prep' ? 'In Preparation' : 'Not Started';
       const stepCount = (o.steps || []).length;
       el.innerHTML = `
         <div class="order-num">${h(o.order_number)}</div>
         <div class="order-dash">—</div>
-        <div class="order-name">${h(o.name)}</div>
+        <div class="order-name">${h(o.name)}${notesFlagHtml(o)}</div>
         <div class="order-steps-count">${stepCount} step${stepCount !== 1 ? 's' : ''}</div>
         <div class="pill ${pillCls}">${pillTxt}</div>
         <div class="order-arrow">›</div>`;
@@ -452,6 +466,7 @@ function renderOrderDetail(order) {
     document.getElementById('tab-panel-wp').innerHTML  = renderWorkplan(order);
     document.getElementById('tab-panel-bom').innerHTML = `<div class="placeholder"><div class="ph-ico">🗂</div><p>Coming soon</p></div>`;
     document.getElementById('tab-panel-td').innerHTML  = renderTechDrawing(order);
+
 }
 
 function toggleSection(key) {
@@ -462,6 +477,13 @@ function toggleEditMode() {
   editMode = !editMode;
   const order = ordersCache.find(o => o.id == currentOrderId);
   if (order) renderOrderDetail(order);
+}
+
+async function markOrderReady() {
+  try {
+    await apiPatch(`/orders/${currentOrderId}`, { ready: 1 });
+    await loadAndRenderOrderDetail(currentOrderId);
+  } catch (e) { showError(e.message); }
 }
 
 function deleteCancelClick() {
@@ -546,11 +568,17 @@ function renderWorkplan(order) {
   }
 
   // Normaler Modus: Tabelle + Inject Button
+  const anyStarted = started > 0;
+  const readinessBtn = (!anyStarted && !order.ready)
+    ? `<button class="btn btn-secondary btn-sm" style="margin-left:auto;" onclick="markOrderReady()">✓ Mark Ready for Production</button>`
+    : '';
+
   return `
     <div class="wp-stats">
       <div><div class="wp-stat-label">Steps</div><div class="wp-stat-val">${steps.length}</div></div>
       <div><div class="wp-stat-label">Active</div><div class="wp-stat-val" style="color:var(--warn)">${started - done}</div></div>
       <div><div class="wp-stat-label">Done</div><div class="wp-stat-val" style="color:var(--green)">${done}</div></div>
+      ${readinessBtn}
     </div>
     ${table}
     ${injectBtn}`;

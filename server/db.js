@@ -42,7 +42,17 @@ const SCHEMA = `
     end_date        TEXT,
     end_time        TEXT
   );
+
+  CREATE TABLE IF NOT EXISTS orders (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_number  TEXT    NOT NULL UNIQUE,
+    name          TEXT    NOT NULL,
+    drawing_url   TEXT,
+    ready         INTEGER NOT NULL DEFAULT 0,
+    created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
 `;
+
 
 // ── Initialize Database ────────────────────────────────────────────────────────────────
 async function init() {
@@ -53,9 +63,17 @@ async function init() {
     db = new SQL.Database();
   }
   db.run(SCHEMA);
+  migrateSchema();
   persist();
   console.log(`  Database ready: ${DB_PATH}`);
 }
+
+// Adds columns that were introduced after the initial schema, for existing DB files
+function migrateSchema() {
+  try { db.run('ALTER TABLE orders ADD COLUMN ready INTEGER NOT NULL DEFAULT 0'); }
+  catch (e) { /* column already exists — ignore */ }
+}
+
 
 // ── Query helpers ─────────────────────────────────────────────────────────
 function query(sql, params = []) {
@@ -147,7 +165,7 @@ function deleteOrder(id) {
 }
 
 function updateOrder(id, fields) {
-  const allowed = ['name', 'drawing_url'];
+  const allowed = ['name', 'drawing_url', 'ready'];
   const keys    = Object.keys(fields).filter(k => allowed.includes(k));
   if (!keys.length) return getOrderById(id);
   const setClause = keys.map(k => `${k} = ?`).join(', ');

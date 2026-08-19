@@ -69,8 +69,7 @@
     #live-clock{color:var(--accent2);}
 
     /* BREADCRUMB */
-    .breadcrumb{padding:12px 32px;font-family:var(--mono);font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);background:var(--bg);}
-    .bc-sep{color:var(--text-dim);}
+    .breadcrumb{padding:12px 32px;font-family:var(--mono);font-size:11px;color:var(--text-muted);display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:56px;height:44px;box-sizing:border-box;z-index:90;}    .bc-sep{color:var(--text-dim);}
     .bc-item{cursor:pointer;transition:color var(--tr);}
     .bc-item:hover,.bc-item.active{color:var(--accent);}
 
@@ -85,7 +84,7 @@
     /* TYPOGRAPHY */
     .page-label{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:6px;}
     .page-heading{font-family:var(--mono);font-size:28px;font-weight:600;color:var(--text);letter-spacing:-.02em;}
-    .heading-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px;gap:16px;flex-wrap:wrap;}
+    .heading-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:0;gap:16px;flex-wrap:wrap;position:sticky;top:100px;z-index:80;background:var(--bg);padding:16px 0;border-bottom:1px solid var(--border);}
     .heading-row-left{display:flex;flex-direction:column;}
 
     /* BUTTONS */
@@ -118,7 +117,7 @@
     .search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:13px;pointer-events:none;}
 
     /* ORDERS LIST */
-    .list{display:flex;flex-direction:column;gap:8px;}
+    .list{display:flex;flex-direction:column;gap:8px;margin-top:20px;}
     .empty-state{text-align:center;padding:60px 0;font-family:var(--mono);font-size:13px;color:var(--text-dim);}
     .empty-state p{margin-top:8px;color:var(--text-muted);font-size:12px;}
 
@@ -129,9 +128,11 @@
     .order-num{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--accent);min-width:56px;}
     .order-dash{color:var(--text-dim);font-family:var(--mono);}
     .order-name{font-size:15px;font-weight:500;color:var(--text);flex:1;}
+    .note-flag{display:inline-flex;align-items:center;justify-content:center;margin-left:8px;color:var(--danger);font-size:15px;cursor:help;vertical-align:middle;}
     .order-steps-count{font-family:var(--mono);font-size:11px;color:var(--text-muted);}
     .pill{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;border-radius:99px;border:1px solid;}
     .pill-ns{color:var(--text-muted);border-color:var(--border);}
+    .pill-prep{color:#8b5cf6;border-color:rgba(139,92,246,.3);background:rgba(139,92,246,.08);}
     .pill-ip{color:var(--warn);border-color:rgba(247,169,79,.3);background:rgba(247,169,79,.08);}
     .pill-done{color:var(--green);border-color:rgba(61,220,132,.3);background:rgba(64, 190, 121, 0.208);}
     .order-arrow{color:var(--text-dim);font-size:16px;transition:color var(--tr),transform var(--tr);}
@@ -168,7 +169,7 @@
     .sec-inner{padding:0 24px 24px;}
 
     /* WORK PLAN TABLE */
-    .wp-stats{display:flex;gap:24px;padding:14px 0;border-top:1px solid var(--border);margin-bottom:20px;}
+    .wp-stats{display:flex;align-items:center;gap:24px;padding:14px 0;border-top:1px solid var(--border);margin-bottom:20px;}
     .wp-stat-label{font-family:var(--mono);font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.1em;}
     .wp-stat-val{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text);}
     .tbl-wrap{overflow-x:auto;border-radius:var(--radius);border:1px solid var(--border);}
